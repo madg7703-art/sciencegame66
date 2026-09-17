@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAR Science Game: สมบัติของสสาร (States of Matter)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontPrompt for Thai typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        sci: {
+                            dark: '#0B132B',
+                            card: '#1C2541',
+                            accent: '#48CAE4',
+                            glow: '#00B4D8',
+                            success: '#2A9D8F',
+                            danger: '#E76F51',
+                            warning: '#F4A261'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #0B132B;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: rgba(28, 37, 65, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(72, 202, 228, 0.35);
+        }
+        .glass-btn {
+            background: linear-gradient(135deg, rgba(72, 202, 228, 0.25), rgba(0, 180, 216, 0.45));
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(72, 202, 228, 0.6);
+            transition: all 0.3s ease;
+        }
+        .glass-btn:hover {
+            background: linear-gradient(135deg, rgba(72, 202, 228, 0.45), rgba(0, 180, 216, 0.75));
+            box-shadow: 0 0 25px rgba(72, 202, 228, 0.7);
+            transform: translateY(-2px);
+        }
+
+        /* Multi-colored glowing animated borders for item card */
+        @keyframes multiColorGlow {
+            0% { border-color: #48CAE4; box-shadow: 0 0 25px rgba(72, 202, 228, 0.5); }
+            33% { border-color: #F4A261; box-shadow: 0 0 25px rgba(244, 162, 97, 0.5); }
+            66% { border-color: #2A9D8F; box-shadow: 0 0 25px rgba(42, 157, 143, 0.5); }
+            100% { border-color: #48CAE4; box-shadow: 0 0 25px rgba(72, 202, 228, 0.5); }
+        }
+        .animate-glow-border {
+            animation: multiColorGlow 6s ease-in-out infinite;
+        }
+
+        @keyframes soundWave {
+            0%, 100% { height: 10px; }
+            50% { height: 45px; }
+        }
+        .wave-bar {
+            animation: soundWave 1.2s ease-in-out infinite;
+        }
+        .wave-bar:nth-child(2) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.4s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.6s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.8s; }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0B132B;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #48CAE4;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative select-none">
+
+    <div class="fixed inset-0 w-full h-full -z-20 overflow-hidden bg-sci-dark">
+        <video id="webcam" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover opacity-85"></video>
+        <div class="absolute inset-0 bg-gradient-to-b from-sci-dark/40 via-sci-dark/10 to-sci-dark/60"></div>
+    </div>
+
+    <canvas id="arCanvas" class="fixed inset-0 w-full h-full -z-10 pointer-events-none"></canvas>
+
+    <!-- PiP Camera Container -->
+    <div id="pipCameraContainer" class="fixed bottom-4 right-4 z-40 hidden flex flex-col items-center animate-fadeIn shadow-2xl">
+        <div class="glass-panel rounded-2xl p-2 border border-cyan-400/50 flex flex-col items-center bg-sci-card/90">
+            <div class="relative w-32 h-24 sm:w-40 sm:h-30 rounded-xl overflow-hidden bg-black/60 border border-cyan-500/40">
+                <video id="webcamPip" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover"></video>
+                <div class="absolute top-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-[10px] text-cyan-300 flex items-center space-x-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>ผู้เล่น (Live)</span>
+                </div>
+            </div>
+            <span class="text-[10px] text-cyan-200 mt-1 font-medium">จอเสริม AR View</span>
+        </div>
+    </div>
+
+    <header class="w-full p-4 md:p-6 flex justify-between items-center glass-panel border-b border-sci-accent/40 z-30 shadow-lg shadow-cyan-500/10">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-300">
+                <i class="fa-solid fa-atom text-white text-xl animate-spin" style="animation-duration: 8s;"></i>
+            </div>
+            <div>
+                <h1 class="text-lg md:text-xl font-bold tracking-wider bg-gradient-to-r from-cyan-300 via-teal-300 to-blue-400 bg-clip-text text-transparent">Matter AR Lab</h1>
+                <p class="text-xs text-cyan-200/80">สมบัติของสสาร 3 สถานะ</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2 md:space-x-3">
+            <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-black/40 border border-cyan-500/30 text-xs text-cyan-300">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>FPS: <strong id="fpsCounter">60</strong></span>
+            </div>
+            <div id="micStatusBadge" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyan-950/70 border border-cyan-500/50 text-xs text-cyan-200 shadow-sm shadow-cyan-500/20">
+                <i class="fa-solid fa-microphone text-cyan-400"></i>
+                <span id="micStatusText">Voice AR พร้อม</span>
+            </div>
+            <!-- BGM Toggle Button -->
+            <button id="toggleBgmBtn" onclick="toggleBgm()" class="px-3 py-1.5 rounded-xl glass-panel flex items-center space-x-1.5 text-xs text-cyan-300 hover:text-white border border-cyan-400/40 transition shadow-sm" title="เปิด/ปิด ดนตรีพื้นหลัง">
+                <i class="fa-solid fa-music" id="bgmIcon"></i>
+                <span class="hidden md:inline">ดนตรี</span>
+            </button>
+            <!-- Speech Narration Toggle Button -->
+            <button id="toggleNarrationBtn" onclick="toggleNarration()" class="px-3 py-1.5 rounded-xl glass-panel flex items-center space-x-1.5 text-xs text-cyan-300 hover:text-white border border-cyan-400/40 transition shadow-sm" title="เปิด/ปิด เสียงบรรยายบทเรียน">
+                <i class="fa-solid fa-volume-high" id="narrationIcon"></i>
+                <span class="hidden md:inline">เสียงบรรยาย</span>
+            </button>
+            <button id="toggleAudioBtn" onclick="toggleAudio()" class="w-9 h-9 rounded-xl glass-panel flex items-center justify-center text-cyan-300 hover:text-white border border-cyan-400/40 transition shadow-sm" title="เสียงเอฟเฟกต์">
+                <i class="fa-solid fa-volume-high" id="audioIcon"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col items-center justify-center p-4 max-w-4xl mx-auto w-full z-20 my-auto">
+
+        <div id="startScreen" class="w-full glass-panel rounded-3xl p-6 md:p-10 shadow-2xl text-center flex flex-col items-center space-y-6 border border-cyan-400/50 animate-fadeIn bg-gradient-to-b from-sci-card/90 via-sci-dark/80 to-sci-card/90">
+            <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-cyan-400 via-teal-500 to-indigo-600 flex items-center justify-center shadow-2xl shadow-cyan-500/50 transform hover:scale-105 transition duration-300 border-2 border-cyan-200">
+                <i class="fa-solid fa-flask-vial text-white text-5xl"></i>
+            </div>
+            <div class="space-y-2 max-w-xl">
+                <h2 class="text-2xl md:text-4xl font-extrabold text-white">ผจญภัยในโลกสสารอัจฉริยะ (WebAR)</h2>
+                <p class="text-sm md:text-base text-cyan-100/90 leading-relaxed">
+                    ทดสอบความรู้เรื่อง <span class="text-cyan-300 font-semibold">ของแข็ง ของเหลว และแก๊ส</span> ด้วยระบบเสียงอัจฉริยะ พร้อมสรุปสาระการเรียนรู้เชิงลึกพร้อมภาพประกอบเมื่อเล่นจบในแต่ละด่าน!
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg text-xs md:text-sm">
+                <div class="p-3 rounded-xl bg-black/40 border border-cyan-500/30 flex flex-col items-center space-y-1 shadow-md">
+                    <i class="fa-solid fa-microphone-lines text-cyan-400 text-lg"></i>
+                    <span class="font-medium text-cyan-200">ตอบด้วยเสียงไทย</span>
+                </div>
+                <div class="p-3 rounded-xl bg-black/40 border border-teal-500/30 flex flex-col items-center space-y-1 shadow-md">
+                    <i class="fa-solid fa-graduation-cap text-teal-400 text-lg"></i>
+                    <span class="font-medium text-teal-200">สรุปสาระพร้อมภาพประกอบ</span>
+                </div>
+                <div class="p-3 rounded-xl bg-black/40 border border-indigo-500/30 flex flex-col items-center space-y-1 shadow-md">
+                    <i class="fa-solid fa-music text-indigo-400 text-lg"></i>
+                    <span class="font-medium text-indigo-200">ดนตรี & เสียงประกอบ</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md pt-2">
+                <button onclick="playClickSound(); startGame();" class="flex-1 py-4 px-8 rounded-2xl bg-gradient-to-r from-cyan-400 via-teal-500 to-blue-600 font-bold text-white shadow-xl shadow-cyan-500/40 hover:shadow-cyan-500/70 hover:scale-[1.02] active:scale-95 transition flex items-center justify-center space-x-3 text-lg border border-cyan-300">
+                    <span>เริ่มเกมทดลอง</span>
+                    <i class="fa-solid fa-play"></i>
+                </button>
+                <button onclick="playClickSound(); openTutorial();" class="py-4 px-6 rounded-2xl glass-panel font-medium text-cyan-200 hover:text-white hover:border-cyan-400 transition shadow-md">
+                    <i class="fa-solid fa-book-open mr-1"></i>
+                    <span>วิธีเล่น / คู่มือ</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="gameScreen" class="w-full hidden flex flex-col space-y-4 animate-fadeIn">
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="glass-panel p-3 rounded-2xl flex items-center space-x-3 border border-cyan-500/40 shadow-md">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center text-cyan-300 font-bold">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-cyan-300/70">ด่านปัจจุบัน</p>
+                        <p id="hudLevel" class="text-base font-bold text-white">ด่าน 1</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-3 rounded-2xl flex items-center space-x-3 border border-emerald-500/40 shadow-md">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-300 font-bold">
+                        <i class="fa-solid fa-star"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-emerald-300/70">คะแนนรวม</p>
+                        <p id="hudScore" class="text-base font-bold text-white">0 คะแนน</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-3 rounded-2xl flex items-center space-x-3 border border-amber-500/40 shadow-md">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 font-bold">
+                        <i class="fa-solid fa-fire"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-amber-300/70">คอมโบต่อเนื่อง</p>
+                        <p id="hudCombo" class="text-base font-bold text-amber-400">0x</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-3 rounded-2xl flex items-center space-x-3 border border-rose-500/40 shadow-md">
+                    <div class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-400/50 flex items-center justify-center text-rose-300 font-bold">
+                        <i class="fa-solid fa-heart"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-rose-300/70">พลังชีวิต</p>
+                        <div id="hudLives" class="flex space-x-1 text-rose-400 text-sm mt-0.5">
+                            <i class="fa-solid fa-heart"></i><i class="fa-solid fa-heart"></i><i class="fa-solid fa-heart"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Central Question Card with Multi-colored Glowing Animated Border -->
+            <div class="glass-panel rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden border-2 animate-glow-border flex flex-col items-center text-center space-y-6 bg-gradient-to-b from-sci-card/95 via-sci-dark/90 to-sci-card/95">
+                <div class="w-full flex justify-between items-center text-xs text-cyan-300">
+                    <span id="questionProgress" class="px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/40 font-semibold">คำถามที่ 1 / 5</span>
+                    <span id="questionTimer" class="px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/40 font-mono font-bold text-teal-300">เวลา: 30s</span>
+                </div>
+
+                <div class="w-full max-w-md p-6 rounded-2xl bg-black/50 border border-cyan-400/40 flex flex-col items-center space-y-4 relative shadow-xl">
+                    <div class="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl overflow-hidden bg-black/70 border-2 border-cyan-400/60 shadow-lg shadow-cyan-500/40 flex items-center justify-center">
+                        <img id="qItemImage" src="" alt="Item Image" class="w-full h-full object-cover transform hover:scale-105 transition duration-300" onerror="this.onerror=null; this.src='https://placehold.co/200x200/1c2541/48cae4?text=Matter';">
+                    </div>
+                    <div>
+                        <h3 id="qItemTitle" class="text-xl md:text-2xl font-bold text-white">วัตถุหรือสถานการณ์</h3>
+                        <p id="qItemDesc" class="text-sm text-cyan-200/90 mt-1">วิเคราะห์สมบัติเพื่อจำแนกสถานะสสาร</p>
+                    </div>
+                </div>
+
+                <div class="w-full max-w-md p-4 rounded-2xl bg-gradient-to-r from-cyan-950/60 via-teal-950/60 to-indigo-950/60 border border-cyan-400/50 flex flex-col items-center space-y-3 shadow-md">
+                    <div class="flex items-center space-x-2 text-cyan-200 text-sm">
+                        <div id="voiceWaveAnimation" class="flex items-center space-x-1 h-6">
+                            <span class="w-1 bg-cyan-400 rounded-full wave-bar"></span>
+                            <span class="w-1 bg-teal-400 rounded-full wave-bar"></span>
+                            <span class="w-1 bg-indigo-400 rounded-full wave-bar"></span>
+                            <span class="w-1 bg-cyan-400 rounded-full wave-bar"></span>
+                            <span class="w-1 bg-teal-400 rounded-full wave-bar"></span>
+                        </div>
+                        <span id="voicePromptText" class="font-medium">พูดคำตอบ: <strong class="text-cyan-300">"ของแข็ง"</strong>, <strong class="text-teal-300">"ของเหลว"</strong> หรือ <strong class="text-indigo-300">"แก๊ส"</strong></span>
+                    </div>
+                    <p id="speechResultDisplay" class="text-xs text-cyan-300 italic">รอรับเสียงพูดคำตอบ...</p>
+                </div>
+
+                <!-- Fallback Touch / Click Buttons with Vibrant Gradients -->
+                <div id="answerButtonsContainer" class="w-full max-w-lg grid grid-cols-3 gap-3 pt-2">
+                    <button onclick="playClickSound(); submitAnswer('ของแข็ง')" class="py-3 px-2 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 font-semibold text-white shadow-lg shadow-cyan-500/30 border border-cyan-300 hover:scale-105 active:scale-95 transition flex flex-col items-center justify-center space-y-1">
+                        <i class="fa-solid fa-cube text-lg text-cyan-200"></i>
+                        <span>ของแข็ง</span>
+                    </button>
+                    <button onclick="playClickSound(); submitAnswer('ของเหลว')" class="py-3 px-2 rounded-xl bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 font-semibold text-white shadow-lg shadow-emerald-500/30 border border-emerald-300 hover:scale-105 active:scale-95 transition flex flex-col items-center justify-center space-y-1">
+                        <i class="fa-solid fa-droplet text-lg text-emerald-200"></i>
+                        <span>ของเหลว</span>
+                    </button>
+                    <button onclick="playClickSound(); submitAnswer('แก๊ส')" class="py-3 px-2 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 font-semibold text-white shadow-lg shadow-indigo-500/30 border border-indigo-300 hover:scale-105 active:scale-95 transition flex flex-col items-center justify-center space-y-1">
+                        <i class="fa-solid fa-wind text-lg text-indigo-200"></i>
+                        <span>แก๊ส</span>
+                    </button>
+                </div>
+
+                <!-- Next Question Action Box (Shown after answering) -->
+                <div id="nextQuestionActionBox" class="w-full max-w-lg hidden pt-2">
+                    <button onclick="playClickSound(); proceedToNextQuestion();" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 font-bold text-white shadow-lg shadow-emerald-500/50 border border-emerald-300 hover:scale-105 transition flex items-center justify-center space-x-2 text-lg">
+                        <span>พูด "ต่อไป" หรือคลิกเพื่อไปข้อถัดไป</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <div class="w-full flex justify-between items-center pt-2">
+                    <button onclick="playClickSound(); useHint();" id="hintBtn" class="text-xs text-amber-300 hover:text-white flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-amber-500/40 transition shadow-sm">
+                        <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                        <span id="hintText">ขอคำใบ้ (เหลือ 2 ครั้ง)</span>
+                    </button>
+                    <div class="flex space-x-2">
+                        <button onclick="playClickSound(); restartSpeechRecognition();" class="text-xs text-cyan-300 hover:text-white flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/70 border border-cyan-500/50 transition shadow-sm">
+                            <i class="fa-solid fa-rotate text-cyan-400"></i>
+                            <span>รีสตาร์ทไมค์</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="levelSummaryScreen" class="w-full hidden glass-panel rounded-3xl p-6 md:p-10 shadow-2xl text-center flex flex-col items-center space-y-6 border-2 border-teal-400/50 animate-fadeIn bg-gradient-to-b from-sci-card/95 via-sci-dark/90 to-sci-card/95">
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyan-400 via-teal-500 to-blue-600 flex items-center justify-center shadow-2xl shadow-cyan-500/50 animate-bounce border-2 border-cyan-200">
+                <i class="fa-solid fa-graduation-cap text-white text-4xl"></i>
+            </div>
+            <div class="space-y-2 max-w-lg">
+                <h2 id="summaryTitle" class="text-2xl md:text-3xl font-extrabold text-white">สรุปสาระการเรียนรู้: ด่าน 1</h2>
+                <p class="text-sm text-cyan-200/90">ทบทวนความเข้าใจสมบัติของสสารประจำด่านพร้อมภาพประกอบก่อนไปลุยด่านถัดไป!</p>
+            </div>
+
+            <!-- Enhanced Learning Card Container with Image Grid -->
+            <div id="summaryContentBox" class="w-full max-w-lg p-6 rounded-2xl bg-black/50 border border-teal-400/40 text-left space-y-4 shadow-xl">
+                <!-- Dynamically populated educational content with images -->
+            </div>
+
+            <button onclick="playClickSound(); proceedToNextLevelOrWin();" class="w-full max-w-md py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-teal-500 to-blue-600 font-bold text-white shadow-lg shadow-cyan-500/40 hover:scale-[1.02] transition flex items-center justify-center space-x-2 text-lg border border-cyan-300">
+                <span>ไปต่อด่านถัดไป</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <div id="winScreen" class="w-full hidden glass-panel rounded-3xl p-6 md:p-10 shadow-2xl text-center flex flex-col items-center space-y-6 border-2 border-emerald-400/50 animate-fadeIn bg-gradient-to-b from-sci-card/95 via-sci-dark/90 to-sci-card/95">
+            <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-emerald-400 via-teal-500 to-cyan-500 flex items-center justify-center shadow-2xl shadow-emerald-500/50 animate-bounce border-2 border-emerald-200">
+                <i class="fa-solid fa-trophy text-white text-5xl"></i>
+            </div>
+            <div class="space-y-2">
+                <h2 class="text-3xl md:text-4xl font-extrabold text-white">🎉 ยินดีด้วย! ผ่านภารกิจครบทุกด่านแล้ว 🏆</h2>
+                <p class="text-sm md:text-base text-cyan-200/90">คุณมีความเชี่ยวชาญยอดเยี่ยมในการจำแนกสมบัติของสสารทั้ง 3 สถานะ!</p>
+            </div>
+
+            <div class="w-full max-w-md p-6 rounded-2xl bg-black/50 border border-emerald-500/40 grid grid-cols-2 gap-4 text-center shadow-xl">
+                <div class="p-3 rounded-xl bg-cyan-950/60 border border-cyan-500/30">
+                    <p class="text-xs text-cyan-300/80">คะแนนรวมทั้งหมด</p>
+                    <p id="finalScore" class="text-2xl font-bold text-emerald-400">1,250</p>
+                </div>
+                <div class="p-3 rounded-xl bg-cyan-950/60 border border-cyan-500/30">
+                    <p class="text-xs text-cyan-300/80">ระดับความสำเร็จ</p>
+                    <div id="finalStars" class="flex justify-center space-x-1 text-amber-400 text-lg mt-1">
+                        <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                    </div>
+                </div>
+                <div class="col-span-2 p-3 rounded-xl bg-cyan-950/60 border border-cyan-500/30 flex justify-between items-center px-6">
+                    <span class="text-xs text-cyan-300/80">เวลาที่ใช้ในการทดลอง:</span>
+                    <span id="finalTime" class="text-sm font-mono font-bold text-cyan-200">01:45 นาที</span>
+                </div>
+            </div>
+
+            <div class="flex gap-4 w-full max-w-md pt-2">
+                <button onclick="playClickSound(); restartGame();" class="flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 font-bold text-white shadow-lg shadow-emerald-500/40 hover:scale-105 transition flex items-center justify-center space-x-2 border border-emerald-300">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>เล่นใหม่อีกครั้ง</span>
+                </button>
+                <button onclick="playClickSound(); openStartScreen();" class="py-4 px-6 rounded-2xl glass-panel font-medium text-cyan-200 hover:text-white transition shadow-md">
+                    หน้าหลัก
+                </button>
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="w-full hidden glass-panel rounded-3xl p-6 md:p-10 shadow-2xl text-center flex flex-col items-center space-y-6 border-2 border-rose-500/50 animate-fadeIn bg-gradient-to-b from-sci-card/95 via-sci-dark/90 to-sci-card/95">
+            <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-rose-600 via-red-600 to-amber-600 flex items-center justify-center shadow-2xl shadow-rose-500/50 animate-pulse border-2 border-rose-300">
+                <i class="fa-solid fa-triangle-exclamation text-white text-5xl"></i>
+            </div>
+            <div class="space-y-2">
+                <h2 class="text-3xl md:text-4xl font-extrabold text-white">พลังชีวิตหมดลงแล้ว!</h2>
+                <p class="text-sm md:text-base text-cyan-200/90">อย่าเพิ่งยอมแพ้ ทบทวนสมบัติของสสารแล้วลองใหม่อีกครั้งนะ!</p>
+            </div>
+
+            <div class="flex gap-4 w-full max-w-md pt-2">
+                <button onclick="playClickSound(); restartGame();" class="flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 font-bold text-white shadow-lg shadow-rose-500/40 hover:scale-105 transition flex items-center justify-center space-x-2 border border-rose-300">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>ลองใหม่อีกครั้ง</span>
+                </button>
+                <button onclick="playClickSound(); openStartScreen();" class="py-4 px-6 rounded-2xl glass-panel font-medium text-cyan-200 hover:text-white transition shadow-md">
+                    หน้าหลัก
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <div id="tutorialModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-lg rounded-3xl p-6 md:p-8 border-2 border-cyan-400/50 space-y-6 relative max-h-[90vh] overflow-y-auto bg-sci-card shadow-2xl">
+            <div class="flex justify-between items-center border-b border-cyan-500/30 pb-4">
+                <h3 class="text-xl font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-book-open text-cyan-400"></i>
+                    <span>คู่มือการเรียนรู้ & วิธีเล่น</span>
+                </h3>
+                <button onclick="playClickSound(); closeTutorial();" class="w-8 h-8 rounded-xl bg-black/50 text-cyan-300 hover:text-white flex items-center justify-center transition border border-cyan-500/30">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs md:text-sm text-cyan-100/90 leading-relaxed">
+                <div class="p-3 rounded-xl bg-cyan-950/60 border border-cyan-500/30 flex items-center space-x-3 shadow-md">
+                    <img src="https://lh3.googleusercontent.com/d/1ul0t9Njbzqp5zNrSze1_q7fbPyw-XwCB" alt="Solid" class="w-14 h-14 rounded-lg object-cover border border-cyan-400/50">
+                    <div>
+                        <h4 class="font-bold text-cyan-300 mb-0.5"><i class="fa-solid fa-cube mr-1"></i> 1. ของแข็ง (Solid)</h4>
+                        <p class="text-cyan-200/80">มวลคงที่, ต้องการที่อยู่, รูปร่างและปริมาตรคงที่</p>
+                    </div>
+                </div>
+                <div class="p-3 rounded-xl bg-teal-950/60 border border-teal-500/30 flex items-center space-x-3 shadow-md">
+                    <img src="https://lh3.googleusercontent.com/d/1WPLVP1XH4DlAyQ10lXi-2vBwiJk4C3Rt" alt="Liquid" class="w-14 h-14 rounded-lg object-cover border border-teal-400/50">
+                    <div>
+                        <h4 class="font-bold text-teal-300 mb-0.5"><i class="fa-solid fa-droplet mr-1"></i> 2. ของเหลว (Liquid)</h4>
+                        <p class="text-teal-200/80">มวลคงที่, ต้องการที่อยู่, รูปร่างเปลี่ยนตามภาชนะ, ปริมาตรคงที่</p>
+                    </div>
+                </div>
+                <div class="p-3 rounded-xl bg-indigo-950/60 border border-indigo-500/30 flex items-center space-x-3 shadow-md">
+                    <img src="https://lh3.googleusercontent.com/d/1oY7WAmmQUIwb5TU6HJ0yi-_UcDxwn6-f" alt="Gas" class="w-14 h-14 rounded-lg object-cover border border-indigo-400/50">
+                    <div>
+                        <h4 class="font-bold text-indigo-300 mb-0.5"><i class="fa-solid fa-wind mr-1"></i> 3. แก๊ส (Gas)</h4>
+                        <p class="text-indigo-200/80">มวลคงที่, ต้องการที่อยู่, รูปร่างและปริมาตรเปลี่ยนตามภาชนะ</p>
+                    </div>
+                </div>
+                <div class="p-3 rounded-xl bg-black/50 border border-cyan-500/30 space-y-2 shadow-md">
+                    <h4 class="font-bold text-white"><i class="fa-solid fa-microphone text-cyan-400 mr-2"></i>วิธีตอบคำถาม:</h4>
+                    <p>พูดคำว่า <span class="text-cyan-300 font-bold">"ของแข็ง"</span>, <span class="text-teal-300 font-bold">"ของเหลว"</span> หรือ <span class="text-indigo-300 font-bold">"แก๊ส"</span> ชัดๆ ใกล้ไมโครโฟน หรือคลิกปุ่มเลือกคำตอบด้านล่าง เมื่อตอบถูกต้องแล้ว ให้พูดคำว่า <span class="text-cyan-300 font-bold">"ต่อไป"</span> เพื่อไปข้อถัดไป</p>
+                </div>
+            </div>
+
+            <button onclick="playClickSound(); closeTutorial();" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 via-teal-500 to-blue-600 font-semibold text-white shadow-lg hover:shadow-cyan-500/40 transition border border-cyan-300">
+                เข้าใจแล้ว, เริ่มลุยเลย!
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 hidden transition-all duration-300">
+        <div id="toastBox" class="px-6 py-3 rounded-2xl glass-panel shadow-2xl flex items-center space-x-3 border text-white font-semibold">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-xl"></i>
+            <span id="toastMessage">ตอบถูกต้อง! +100 คะแนน</span>
+        </div>
+    </div>
+
+    <footer class="w-full p-4 text-center text-xs text-cyan-300/70 glass-panel border-t border-cyan-500/30 z-30 shadow-inner">
+        <p>WebAR Science Learning Game &copy; 2026 | พัฒนาด้วย HTML5, Tailwind CSS & Web Speech API</p>
+    </footer>
+
+    <script>
+        let gameState = {
+            currentLevel: 1,
+            currentQuestionIndex: 0,
+            score: 0,
+            combo: 0,
+            lives: 3,
+            hintsRemaining: 2,
+            timeLeft: 30,
+            timerInterval: null,
+            audioEnabled: true,
+            narrationEnabled: true,
+            bgmEnabled: false,
+            voiceRecognitionActive: true,
+            startTime: null,
+            isAnswering: false,
+            waitingForNext: false
+        };
+
+        let recognition = null;
+        let isListening = false;
+        let sharedMediaStream = null;
+        let bgmAudioCtx = null;
+        let bgmInterval = null;
+
+        // Rich Level Educational Summaries with Images
+        const levelSummaries = {
+            1: {
+                title: "สรุปสาระการเรียนรู้: ด่านที่ 1 (จำแนกวัตถุปกติ)",
+                content: `
+                    <div class="space-y-3 text-xs md:text-sm text-cyan-100">
+                        <div class="flex items-center space-x-3 p-2 rounded-xl bg-cyan-950/60 border border-cyan-500/30">
+                            <img src="https://lh3.googleusercontent.com/d/1ul0t9Njbzqp5zNrSze1_q7fbPyw-XwCB" class="w-12 h-12 rounded-lg object-cover border border-cyan-400">
+                            <div>
+                                <p class="font-bold text-cyan-300"><i class="fa-solid fa-cube mr-1"></i> ของแข็ง (Solid):</p>
+                                <p class="text-cyan-200/90">มีรูปร่างและปริมาตรคงที่แน่นอน อนุภาคยึดติดกันแน่น เช่น ก้อนอิฐ แท่งเหล็ก</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3 p-2 rounded-xl bg-teal-950/60 border border-teal-500/30">
+                            <img src="https://lh3.googleusercontent.com/d/1WPLVP1XH4DlAyQ10lXi-2vBwiJk4C3Rt" class="w-12 h-12 rounded-lg object-cover border border-teal-400">
+                            <div>
+                                <p class="font-bold text-teal-300"><i class="fa-solid fa-droplet mr-1"></i> ของเหลว (Liquid):</p>
+                                <p class="text-teal-200/90">มีปริมาตรคงที่แต่รูปร่างเปลี่ยนตามภาชนะที่บรรจุและไหลได้ เช่น น้ำดื่ม น้ำมัน</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3 p-2 rounded-xl bg-indigo-950/60 border border-indigo-500/30">
+                            <img src="https://lh3.googleusercontent.com/d/1oY7WAmmQUIwb5TU6HJ0yi-_UcDxwn6-f" class="w-12 h-12 rounded-lg object-cover border border-indigo-400">
+                            <div>
+                                <p class="font-bold text-indigo-300"><i class="fa-solid fa-wind mr-1"></i> แก๊ส (Gas):</p>
+                                <p class="text-indigo-200/90">มีทั้งรูปร่างและปริมาตรเปลี่ยนตามภาชนะ ฟุ้งกระจายเต็มพื้นที่ เช่น อากาศ</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                speechText: "ยอดเยี่ยมมากครับ คุณผ่านด่านที่หนึ่งแล้ว สาระสำคัญคือ ของแข็งมีรูปร่างและปริมาตรคงที่ ของเหลวมีปริมาตรคงที่แต่รูปร่างเปลี่ยนตามภาชนะ ส่วนแก๊สมีรูปร่างและปริมาตรเปลี่ยนแปลงตามภาชนะและฟุ้งกระจายเต็มพื้นที่ครับ"
+            },
+            2: {
+                title: "สรุปสาระการเรียนรู้: ด่านที่ 2 (วิเคราะห์อนุภาค)",
+                content: `
+                    <div class="space-y-3 text-xs md:text-sm text-cyan-100">
+                        <div class="flex items-center space-x-3 p-2 rounded-xl bg-cyan-950/60 border border-cyan-500/30">
+                            <img src="https://lh3.googleusercontent.com/d/175vIWVe65PiAm12E0NW3JfHY0P3owmLl" class="w-12 h-12 rounded-lg object-cover border border-cyan-400">
+                            <div>
+                                <p class="font-bold text-cyan-300"><i class="fa-solid fa-atom mr-1"></i> อนุภาคของแข็ง & อนุภาคของเหลว:</p>
+                                <p class="text-cyan-200/90">ของแข็งอนุภาคชิดกันแน่นแรงยึดเหนี่ยวสูงมาก ส่วนของเหลวมีช่องว่างและแรงยึดเหนี่ยวปานกลางไหลได้</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3 p-2 rounded-xl bg-indigo-950/60 border border-indigo-500/30">
+                            <img src="https://lh3.googleusercontent.com/d/1s0LjWtd_gB_Cv--i1eQvkpC24pKfvX-z" class="w-12 h-12 rounded-lg object-cover border border-indigo-400">
+                            <div>
+                                <p class="font-bold text-indigo-300"><i class="fa-solid fa-wind mr-1"></i> อนุภาคแก๊ส:</p>
+                                <p class="text-indigo-200/90">อยู่ห่างกันมาก เคลื่อนที่อย่างอิสระทุกทิศทางด้วยความเร็วสูงและฟุ้งกระจายเต็มภาชนะ</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                speechText: "เก่งมากครับในด่านที่สอง เราได้เรียนรู้โครงสร้างอนุภาค ของแข็งเรียงชิดติดกันแน่น ของเหลวมีช่องว่างมีแรงยึดเหนี่ยวปานกลาง และแก๊สอยู่ห่างกันมากเคลื่อนที่อิสระรอบทิศทางครับ"
+            },
+            3: {
+                title: "สรุปสาระการเรียนรู้: ด่านที่ 3 (เปรียบเทียบเชิงลึก)",
+                content: `
+                    <div class="space-y-3 text-xs md:text-sm text-cyan-100">
+                        <div class="flex items-center space-x-3 p-2 rounded-xl bg-cyan-950/60 border border-cyan-500/30">
+                            <img src="https://lh3.googleusercontent.com/d/1AMGkoxNlczgo2qo_WSOXW2Qk9P9ZdMfx" class="w-12 h-12 rounded-lg object-cover border border-cyan-400">
+                            <div>
+                                <p class="font-bold text-cyan-300"><i class="fa-solid fa-trophy mr-1"></i> สรุปความเชี่ยวชาญสสาร:</p>
+                                <p class="text-cyan-200/90">การจำแนกสสารทั้ง 3 สถานะต้องพิจารณาจากมวล การต้องการที่อยู่ รูปร่าง และปริมาตร รวมถึงความดันและการอัดตัวของแก๊สในภาชนะปิดครับ</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                speechText: "สุดยอดครับ คุณผ่านด่านสุดท้ายสำเร็จแล้ว การจำแนกสสารทั้ง 3 สถานะต้องอาศัยการสังเกตมวล การต้องการที่อยู่ รูปร่าง และปริมาตรอย่างครบถ้วน"
+            }
+        };
+
+        const gameLevels = {
+            1: {
+                name: "ด่าน 1: จำแนกสสารจากวัตถุปกติ",
+                questions: [
+                    { 
+                        item: "ก้อนอิฐบล็อก", 
+                        desc: "สังเกตความแข็ง รูปร่าง และปริมาตรคงที่", 
+                        img: "https://lh3.googleusercontent.com/d/19oQghg7lJDPu-pTSnVeATJbT-wjq3gj8", 
+                        answer: "ของแข็ง", 
+                        hint: "วัตถุแข็ง ไม่ไหล" 
+                    },
+                    { 
+                        item: "น้ำดื่มบริสุทธิ์ในแก้ว", 
+                        desc: "มีมวล ต้องการที่อยู่ ปริมาตรคงที่ แต่ไหลได้", 
+                        img: "https://lh3.googleusercontent.com/d/1tP_Qpd-UezMqcu36qJhFzwgL-L8csiLU", 
+                        answer: "ของเหลว", 
+                        hint: "สภาพไหลได้ ระดับผิวหน้าราบเรียบ" 
+                    },
+                    { 
+                        item: "อากาศบริสุทธิ์ในบรรยากาศ", 
+                        desc: "ฟุ้งกระจายเต็มพื้นที่ ไม่มีรูปร่างแน่นอน", 
+                        img: "https://lh3.googleusercontent.com/d/1TYjZVlqOG5sjThUfjkJxVH6Dnf-PAGQI", 
+                        answer: "แก๊ส", 
+                        hint: "มองไม่เห็นแต่สัมผัสแรงดันได้" 
+                    },
+                    { 
+                        item: "แท่งเหล็กกล้า", 
+                        desc: "วัสดุโลหะ อนุภาคยึดเหนี่ยวแน่นหนา", 
+                        img: "https://lh3.googleusercontent.com/d/1vcpsau4t3V3V3gHS05NiralMVcWWiyIw", 
+                        answer: "ของแข็ง", 
+                        hint: "โลหะแข็งแกร่ง คงรูป" 
+                    },
+                    { 
+                        item: "น้ำมันพืชสำหรับทำอาหาร", 
+                        desc: "ของเหลวหนืด ไหลตามการเอียงของภาชนะ", 
+                        img: "https://lh3.googleusercontent.com/d/132Wwr29QORbroX3wHvVkF8ZctLOx5DHX", 
+                        answer: "ของเหลว", 
+                        hint: "สารอินทรีย์เหลว ไหลและเทได้" 
+                    }
+                ]
+            },
+            2: {
+                name: "ด่าน 2: วิเคราะห์สมบัติอนุภาค",
+                questions: [
+                    { 
+                        item: "อนุภาคเรียงชิดติดกันแน่น แรงยึดเหนี่ยวสูง", 
+                        desc: "รูปร่างและปริมาตรคงที่ ไม่เปลี่ยนตามภาชนะ", 
+                        img: "https://lh3.googleusercontent.com/d/175vIWVe65PiAm12E0NW3JfHY0P3owmLl", 
+                        answer: "ของแข็ง", 
+                        hint: "สสารมีความแข็งเกร็ง" 
+                    },
+                    { 
+                        item: "ไอน้ำพุ่งจากกาต้มน้ำเดือด", 
+                        desc: "สถานะน้ำที่เปลี่ยนเป็นไอเดือดสู่อากาศ", 
+                        img: "https://lh3.googleusercontent.com/d/1RSo3MiPXjwl_BqR30T9JBn836W_jI4y1", 
+                        answer: "แก๊ส", 
+                        hint: "ไอน้ำกระจายตัวในอากาศ" 
+                    },
+                    { 
+                        item: "ปรอทในหลอดวัดอุณหภูมิ", 
+                        desc: "โลหะเหลวชนิดเดียว ไหลตามหลอดแก้ว", 
+                        img: "https://lh3.googleusercontent.com/d/14SfLUR-HE5b4kU-JxFn3iz38uZIzOr4G", 
+                        answer: "ของเหลว", 
+                        hint: "โลหะสถานะของเหลว" 
+                    },
+                    { 
+                        item: "อนุภาคอยู่ห่างกันมาก อิสระทุกทิศทาง", 
+                        desc: "ฟุ้งกระจายเต็มภาชนะและบีบอัดได้", 
+                        img: "https://lh3.googleusercontent.com/d/1s0LjWtd_gB_Cv--i1eQvkpC24pKfvX-z", 
+                        answer: "แก๊ส", 
+                        hint: "ฟุ้งกระจายเต็มพื้นที่" 
+                    },
+                    { 
+                        item: "อนุภาคมีช่องว่าง มีแรงยึดเหนี่ยวปานกลาง", 
+                        desc: "ไหลได้ อนุภาคเคลื่อนที่ได้แต่ไม่เป็นอิสระ ปริมาตรคงที่แต่รูปร่างเปลี่ยนตามภาชนะ", 
+                        img: "https://lh3.googleusercontent.com/d/1uPi84aG61g0xM0tArt38vmp3wDHD8DlE", 
+                        answer: "ของเหลว", 
+                        hint: "ไหลได้และปริมาตรคงที่" 
+                    }
+                ]
+            },
+            3: {
+                name: "ด่าน 3: เปรียบเทียบเชิงลึกขั้นสูง",
+                questions: [
+                    { 
+                        item: "คาร์บอนไดออกไซด์ในถังดับเพลิง", 
+                        desc: "แก๊สถูกอัดแน่นด้วยความดันสูงในถังเหล็ก", 
+                        img: "https://lh3.googleusercontent.com/d/1AMGkoxNlczgo2qo_WSOXW2Qk9P9ZdMfx", 
+                        answer: "แก๊ส", 
+                        hint: "บีบอัดปริมาตรเปลี่ยนตามภาชนะ" 
+                    },
+                    { 
+                        item: "แอลกอฮอล์ฆ่าเชื้อโรค", 
+                        desc: "สารละลายอินทรีย์ระเหยไว มีมวลและปริมาตรคงที่", 
+                        img: "https://lh3.googleusercontent.com/d/1-mk10s37dNz2GP-oS0xHPiUYFJx0-ibH", 
+                        answer: "ของเหลว", 
+                        hint: "ของเหลวระเหยได้ดี" 
+                    },
+                    { 
+                        item: "ทองคำแท่งบริสุทธิ์ 99.99%", 
+                        desc: "ธาตุโลหะหนัก มีความหนาแน่นสูง", 
+                        img: "https://lh3.googleusercontent.com/d/1G0v3RIlqZ_q0pDANFpg_zduPcnPO-FBT", 
+                        answer: "ของแข็ง", 
+                        hint: "โลหะมีค่าสถานะของแข็ง" 
+                    },
+                    { 
+                        item: "ฮีเลียมบริสุทธิ์ในลูกโป่ง", 
+                        desc: "แก๊สความหนาแน่นต่ำทำให้ลูกโป่งลอย", 
+                        img: "https://lh3.googleusercontent.com/d/1FOr4N9QxSMnMPA_z0Z41GRvMK9xkWXLH", 
+                        answer: "แก๊ส", 
+                        hint: "แก๊สเบาลอยตัวขึ้นฟ้า" 
+                    },
+                    { 
+                        item: "น้ำแข็งแห้ง (คาร์บอนไดออกไซด์แข็ง)", 
+                        desc: "ระเหิดกลายเป็นไอแก๊สได้โดยตรง", 
+                        img: "https://lh3.googleusercontent.com/d/1cNvTJfL7yqkl9nNOvqxOX1VWPxikxnHD", 
+                        answer: "ของแข็ง", 
+                        hint: "คาร์บอนไดออกไซด์แข็งอุณหภูมิต่ำ" 
+                    }
+                ]
+            }
+        };
+
+        // Text-to-Speech helper function for level summaries and narration
+        function speakText(text) {
+            if (!gameState.narrationEnabled || !('speechSynthesis' in window)) return;
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'th-TH';
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.warn("Speech synthesis error:", e);
+            }
+        }
+
+        function toggleNarration() {
+            playClickSound();
+            gameState.narrationEnabled = !gameState.narrationEnabled;
+            const icon = document.getElementById('narrationIcon');
+            if (gameState.narrationEnabled) {
+                icon.className = "fa-solid fa-volume-high";
+                showToast("เปิดระบบเสียงบรรยายบทเรียน", "info");
+                speakText("เปิดระบบเสียงบรรยายบทเรียนเรียบร้อยครับ");
+            } else {
+                icon.className = "fa-solid fa-volume-xmark";
+                window.speechSynthesis.cancel();
+                showToast("ปิดระบบเสียงบรรยาย", "warning");
+            }
+        }
+
+        // Cute Background Music Generator using Web Audio API
+        function toggleBgm() {
+            playClickSound();
+            gameState.bgmEnabled = !gameState.bgmEnabled;
+            const icon = document.getElementById('bgmIcon');
+            if (gameState.bgmEnabled) {
+                icon.className = "fa-solid fa-music";
+                showToast("เปิดดนตรีพื้นหลัง", "info");
+                startBgmLoop();
+            } else {
+                icon.className = "fa-solid fa-music-slash";
+                showToast("ปิดดนตรีพื้นหลัง", "warning");
+                stopBgmLoop();
+            }
+        }
+
+        function startBgmLoop() {
+            stopBgmLoop();
+            try {
+                bgmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const notes = [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50];
+                const melody = [0, 2, 4, 2, 5, 4, 2, 0, 3, 5, 7, 5, 4, 2, 0, -1];
+                let noteIndex = 0;
+
+                bgmInterval = setInterval(() => {
+                    if (!gameState.bgmEnabled || !bgmAudioCtx) return;
+                    if (bgmAudioCtx.state === 'suspended') {
+                        bgmAudioCtx.resume();
+                    }
+                    const noteVal = melody[noteIndex % melody.length];
+                    noteIndex++;
+                    if (noteVal < 0) return;
+
+                    const osc = bgmAudioCtx.createOscillator();
+                    const gain = bgmAudioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(notes[noteVal % notes.length], bgmAudioCtx.currentTime);
+
+                    gain.gain.setValueAtTime(0.03, bgmAudioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, bgmAudioCtx.currentTime + 0.4);
+
+                    osc.connect(gain);
+                    gain.connect(bgmAudioCtx.destination);
+
+                    osc.start();
+                    osc.stop(bgmAudioCtx.currentTime + 0.45);
+                }, 400);
+            } catch (e) {
+                console.warn("BGM start error:", e);
+            }
+        }
+
+        function stopBgmLoop() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
+            if (bgmAudioCtx) {
+                try { bgmAudioCtx.close(); } catch(e){}
+                bgmAudioCtx = null;
+            }
+        }
+
+        async function initWebcam() {
+            const videoElement = document.getElementById('webcam');
+            const videoPipElement = document.getElementById('webcamPip');
+            try {
+                sharedMediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
+                });
+                videoElement.srcObject = sharedMediaStream;
+                if (videoPipElement) {
+                    videoPipElement.srcObject = sharedMediaStream;
+                }
+            } catch (error) {
+                console.warn("Webcam access denied.", error);
+            }
+        }
+
+        const canvas = document.getElementById('arCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let fps = 60;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vy = (Math.random() - 0.5) * 1.5;
+                this.radius = Math.random() * 3 + 1;
+                const colors = ['#48CAE4', '#00B4D8', '#F4A261', '#2A9D8F'];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.alpha = Math.random() * 0.7 + 0.2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        for (let i = 0; i < 50; i++) {
+            particles.push(new Particle());
+        }
+
+        function animateLoop(currentTime) {
+            frameCount++;
+            if (currentTime - lastTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+                document.getElementById('fpsCounter').innerText = fps;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 120) {
+                        ctx.save();
+                        ctx.globalAlpha = (1 - (distance / 120)) * 0.25;
+                        ctx.strokeStyle = '#48CAE4';
+                        ctx.lineWidth = 0.8;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }
+            }
+
+            requestAnimationFrame(animateLoop);
+        }
+        requestAnimationFrame(animateLoop);
+
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                document.getElementById('micStatusText').innerText = "โหมดกดปุ่ม (ไม่รองรับไมค์)";
+                return;
+            }
+
+            if (recognition) {
+                try { recognition.stop(); } catch(e){}
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.lang = 'th-TH';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 3;
+
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('speechResultDisplay').innerText = "รอรับเสียงพูดคำตอบ...";
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcriptPiece = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcriptPiece;
+                    } else {
+                        interimTranscript += transcriptPiece;
+                    }
+                }
+
+                const activeSpeechText = (finalTranscript + ' ' + interimTranscript).trim().toLowerCase();
+                if (activeSpeechText.length > 0) {
+                    document.getElementById('speechResultDisplay').innerText = `ได้ยิน: "${activeSpeechText}"`;
+                    processVoiceTranscript(activeSpeechText);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.warn("Speech recognition warning:", event.error);
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                if (gameState.voiceRecognitionActive && !document.getElementById('gameScreen').classList.contains('hidden')) {
+                    try { recognition.start(); } catch (e) {}
+                }
+            };
+
+            try {
+                recognition.start();
+            } catch (e) {}
+        }
+
+        function restartSpeechRecognition() {
+            showToast("รีสตาร์ทไมโครโฟนเรียบร้อย", "info");
+            initSpeechRecognition();
+        }
+
+        function processVoiceTranscript(rawText) {
+            const gameScreen = document.getElementById('gameScreen');
+            if (!gameScreen || gameScreen.classList.contains('hidden')) return;
+
+            const cleanText = rawText.replace(/\s+/g, '').toLowerCase();
+
+            if (gameState.waitingForNext) {
+                if (cleanText.includes("ต่อไป") || cleanText.includes("ถัดไป") || cleanText.includes("ไป")) {
+                    document.getElementById('speechResultDisplay').innerText = `รับคำสั่ง: [ ไปต่อ ]`;
+                    proceedToNextQuestion();
+                }
+                return;
+            }
+
+            if (gameState.isAnswering) return;
+
+            let matchedAnswer = null;
+
+            if (cleanText.includes("ของแข็ง") || cleanText.includes("แข็ง")) {
+                matchedAnswer = "ของแข็ง";
+            } else if (cleanText.includes("ของเหลว") || cleanText.includes("เหลว")) {
+                matchedAnswer = "ของเหลว";
+            } else if (cleanText.includes("แก๊ส") || cleanText.includes("แกส") || cleanText.includes("ก๊าซ") || cleanText.includes("แก็ส")) {
+                matchedAnswer = "แก๊ส";
+            }
+
+            if (matchedAnswer) {
+                gameState.isAnswering = true;
+                document.getElementById('speechResultDisplay').innerText = `คำตอบ: [ ${matchedAnswer} ] - รอตรวจสอบ...`;
+                submitAnswer(matchedAnswer);
+            }
+        }
+
+        function startGame() {
+            gameState.currentLevel = 1;
+            gameState.currentQuestionIndex = 0;
+            gameState.score = 0;
+            gameState.combo = 0;
+            gameState.lives = 3;
+            gameState.hintsRemaining = 2;
+            gameState.startTime = Date.now();
+            gameState.isAnswering = false;
+            gameState.waitingForNext = false;
+
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('winScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('levelSummaryScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            document.getElementById('pipCameraContainer').classList.remove('hidden');
+
+            loadQuestion();
+            initSpeechRecognition();
+        }
+
+        function loadQuestion() {
+            gameState.isAnswering = false;
+            gameState.waitingForNext = false;
+            
+            document.getElementById('answerButtonsContainer').classList.remove('hidden');
+            document.getElementById('nextQuestionActionBox').classList.add('hidden');
+
+            const levelData = gameLevels[gameState.currentLevel];
+            if (!levelData || gameState.currentQuestionIndex >= levelData.questions.length) {
+                triggerLevelSummary();
+                return;
+            }
+
+            const q = levelData.questions[gameState.currentQuestionIndex];
+            if (!q) {
+                triggerLevelSummary();
+                return;
+            }
+            
+            document.getElementById('hudLevel').innerText = `ด่าน ${gameState.currentLevel}`;
+            document.getElementById('hudScore').innerText = `${gameState.score} คะแนน`;
+            document.getElementById('hudCombo').innerText = `${gameState.combo}x`;
+            document.getElementById('questionProgress').innerText = `ด่าน ${gameState.currentLevel} - คำถามที่ ${gameState.currentQuestionIndex + 1} / ${levelData.questions.length}`;
+            
+            document.getElementById('qItemTitle').innerText = q.item;
+            document.getElementById('qItemDesc').innerText = q.desc;
+            document.getElementById('qItemImage').src = q.img;
+            document.getElementById('hintText').innerText = `ขอคำใบ้ (เหลือ ${gameState.hintsRemaining} ครั้ง)`;
+            document.getElementById('speechResultDisplay').innerText = "รอรับเสียงพูดคำตอบ...";
+
+            updateLivesUI();
+            startTimer();
+        }
+
+        function updateLivesUI() {
+            let livesHtml = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < gameState.lives) {
+                    livesHtml += '<i class="fa-solid fa-heart text-rose-500"></i>';
+                } else {
+                    livesHtml += '<i class="fa-solid fa-heart text-gray-600"></i>';
+                }
+            }
+            document.getElementById('hudLives').innerHTML = livesHtml;
+        }
+
+        function startTimer() {
+            clearInterval(gameState.timerInterval);
+            gameState.timeLeft = 30;
+            document.getElementById('questionTimer').innerText = `เวลา: ${gameState.timeLeft}s`;
+
+            gameState.timerInterval = setInterval(() => {
+                if (gameState.waitingForNext) return;
+                gameState.timeLeft--;
+                document.getElementById('questionTimer').innerText = `เวลา: ${gameState.timeLeft}s`;
+
+                if (gameState.timeLeft <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    handleIncorrectAnswer("หมดเวลา! หัก 1 ชีวิต");
+                }
+            }, 1000);
+        }
+
+        function submitAnswer(selectedAnswer) {
+            if (gameState.isAnswering && gameState.waitingForNext) return;
+            
+            const levelData = gameLevels[gameState.currentLevel];
+            if (!levelData || gameState.currentQuestionIndex >= levelData.questions.length) return;
+
+            const q = levelData.questions[gameState.currentQuestionIndex];
+            if (!q) return;
+
+            gameState.isAnswering = true;
+            clearInterval(gameState.timerInterval);
+
+            const normalizedSelected = selectedAnswer.trim();
+            const normalizedCorrect = q.answer.trim();
+
+            if (normalizedSelected === normalizedCorrect) {
+                gameState.combo++;
+                const points = 100 + (gameState.combo * 20) + (gameState.timeLeft * 2);
+                gameState.score += points;
+                showToast(`ถูกต้อง! +${points} คะแนน (คอมโบ ${gameState.combo}x)`, "success");
+                playAudioEffect('correct');
+            } else {
+                gameState.combo = 0;
+                gameState.lives--;
+                updateLivesUI();
+                showToast(`ตอบผิด! ที่ถูกต้องคือ "${normalizedCorrect}"`, "error");
+                playAudioEffect('wrong');
+
+                if (gameState.lives <= 0) {
+                    triggerGameOverState();
+                    return;
+                }
+            }
+
+            gameState.waitingForNext = true;
+            document.getElementById('answerButtonsContainer').classList.add('hidden');
+            document.getElementById('nextQuestionActionBox').classList.remove('hidden');
+            document.getElementById('speechResultDisplay').innerText = `พูดคำว่า "ต่อไป" เพื่อไปข้อถัดไป`;
+        }
+
+        function proceedToNextQuestion() {
+            gameState.currentQuestionIndex++;
+            const levelData = gameLevels[gameState.currentLevel];
+            if (gameState.currentQuestionIndex >= levelData.questions.length) {
+                triggerLevelSummary();
+            } else {
+                loadQuestion();
+            }
+        }
+
+        function handleIncorrectAnswer(message) {
+            gameState.combo = 0;
+            gameState.lives--;
+            updateLivesUI();
+            showToast(message, "error");
+            playAudioEffect('wrong');
+
+            if (gameState.lives <= 0) {
+                triggerGameOverState();
+            } else {
+                gameState.waitingForNext = true;
+                document.getElementById('answerButtonsContainer').classList.add('hidden');
+                document.getElementById('nextQuestionActionBox').classList.remove('hidden');
+                document.getElementById('speechResultDisplay').innerText = `พูดคำว่า "ต่อไป" เพื่อไปข้อถัดไป`;
+            }
+        }
+
+        function useHint() {
+            if (gameState.hintsRemaining > 0) {
+                gameState.hintsRemaining--;
+                const levelData = gameLevels[gameState.currentLevel];
+                const q = levelData.questions[gameState.currentQuestionIndex];
+                showToast(`💡 คำใบ้: ${q.hint}`, "info");
+                document.getElementById('hintText').innerText = `ขอคำใบ้ (เหลือ ${gameState.hintsRemaining} ครั้ง)`;
+            } else {
+                showToast("คุณใช้คำใบ้หมดแล้ว!", "warning");
+            }
+        }
+
+        function triggerLevelSummary() {
+            if (recognition) { try { recognition.stop(); } catch(e){} }
+            document.getElementById('gameScreen').classList.add('hidden');
+            
+            const summary = levelSummaries[gameState.currentLevel];
+            document.getElementById('summaryTitle').innerText = summary.title;
+            document.getElementById('summaryContentBox').innerHTML = summary.content;
+            document.getElementById('levelSummaryScreen').classList.remove('hidden');
+
+            speakText(summary.speechText);
+        }
+
+        function proceedToNextLevelOrWin() {
+            window.speechSynthesis.cancel();
+            document.getElementById('levelSummaryScreen').classList.add('hidden');
+
+            if (gameState.currentLevel < 3) {
+                gameState.currentLevel++;
+                gameState.currentQuestionIndex = 0;
+                showToast(`เข้าสู่ ${gameLevels[gameState.currentLevel].name}`, "success");
+                document.getElementById('gameScreen').classList.remove('hidden');
+                loadQuestion();
+                initSpeechRecognition();
+            } else {
+                triggerWinState();
+            }
+        }
+
+        function triggerWinState() {
+            if (recognition) { try { recognition.stop(); } catch(e){} }
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('levelSummaryScreen').classList.add('hidden');
+            document.getElementById('pipCameraContainer').classList.add('hidden');
+            document.getElementById('winScreen').classList.remove('hidden');
+
+            const totalTimeSec = Math.floor((Date.now() - gameState.startTime) / 1000);
+            const minutes = Math.floor(totalTimeSec / 60).toString().padStart(2, '0');
+            const seconds = (totalTimeSec % 60).toString().padStart(2, '0');
+
+            document.getElementById('finalScore').innerText = gameState.score.toLocaleString();
+            document.getElementById('finalTime').innerText = `${minutes}:${seconds} นาที`;
+
+            let starsHtml = '';
+            const starCount = gameState.lives === 3 ? 3 : gameState.lives === 2 ? 2 : 1;
+            for(let i=0; i<starCount; i++) starsHtml += '<i class="fa-solid fa-star"></i>';
+            document.getElementById('finalStars').innerHTML = starsHtml;
+
+            speakText("ยินดีด้วยครับ คุณผ่านภารกิจสสารทั้งสามด่านสำเร็จแล้ว เก่งมากๆ ครับ");
+        }
+
+        function triggerGameOverState() {
+            if (recognition) { try { recognition.stop(); } catch(e){} }
+            window.speechSynthesis.cancel();
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('levelSummaryScreen').classList.add('hidden');
+            document.getElementById('pipCameraContainer').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+            speakText("พลังชีวิตหมดลงแล้ว ลองใหม่อีกครั้งนะครับ");
+        }
+
+        function restartGame() {
+            window.speechSynthesis.cancel();
+            startGame();
+        }
+
+        function openStartScreen() {
+            if (recognition) { try { recognition.stop(); } catch(e){} }
+            window.speechSynthesis.cancel();
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('levelSummaryScreen').classList.add('hidden');
+            document.getElementById('pipCameraContainer').classList.add('hidden');
+            document.getElementById('winScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('startScreen').classList.remove('hidden');
+        }
+
+        function openTutorial() {
+            document.getElementById('tutorialModal').classList.remove('hidden');
+        }
+
+        function closeTutorial() {
+            document.getElementById('tutorialModal').classList.add('hidden');
+        }
+
+        function showToast(message, type = "success") {
+            const toast = document.getElementById('toastNotification');
+            const toastBox = document.getElementById('toastBox');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.innerText = message;
+
+            if (type === "success") {
+                toastBox.className = "px-6 py-3 rounded-2xl glass-panel shadow-2xl flex items-center space-x-3 border border-emerald-500/50 bg-emerald-950/90 text-white font-semibold";
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-xl";
+            } else if (type === "error") {
+                toastBox.className = "px-6 py-3 rounded-2xl glass-panel shadow-2xl flex items-center space-x-3 border border-rose-500/50 bg-rose-950/90 text-white font-semibold";
+                toastIcon.className = "fa-solid fa-triangle-exclamation text-rose-400 text-xl";
+            } else if (type === "warning") {
+                toastBox.className = "px-6 py-3 rounded-2xl glass-panel shadow-2xl flex items-center space-x-3 border border-amber-500/50 bg-amber-950/90 text-white font-semibold";
+                toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-xl";
+            } else {
+                toastBox.className = "px-6 py-3 rounded-2xl glass-panel shadow-2xl flex items-center space-x-3 border border-cyan-500/50 bg-cyan-950/90 text-white font-semibold";
+                toastIcon.className = "fa-solid fa-circle-info text-cyan-400 text-xl";
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        let audioCtx = null;
+        
+        function playClickSound() {
+            if (!gameState.audioEnabled) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.08);
+
+                gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } catch (e) {}
+        }
+
+        function playAudioEffect(type) {
+            if (!gameState.audioEnabled) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                if (type === 'correct') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.2);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                }
+            } catch (e) {}
+        }
+
+        function toggleAudio() {
+            playClickSound();
+            gameState.audioEnabled = !gameState.audioEnabled;
+            const icon = document.getElementById('audioIcon');
+            if (gameState.audioEnabled) {
+                icon.className = "fa-solid fa-volume-high";
+                showToast("เปิดเสียงเอฟเฟกต์", "info");
+            } else {
+                icon.className = "fa-solid fa-volume-xmark";
+                showToast("ปิดเสียงเอฟเฟกต์", "warning");
+            }
+        }
+
+        window.addEventListener('load', () => {
+            initWebcam();
+        });
+    </script>
+</body>
+</html>
